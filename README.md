@@ -1,9 +1,9 @@
 # camel-arangodb
 Camel ArangoDB Component
 
-For more details about ArangoDB, consult the (ArangoDB web site)[https://www.arangodb.com/].
+For more details about ArangoDB, consult the [ArangoDB web site](https://www.arangodb.com/).
 
-> ArangoDB is a multi-models database. But, at this moment, this component is only dedicated to the document model.
+> ArangoDB is a multi-model database. But, at this moment, this component is only dedicated to the document model.
 
 
 ## Build
@@ -29,7 +29,7 @@ Add the dependency in your pom.xml
 
 ```
 arangodb:configBean?database=databaseName&collection=collectionName&operation=operationName[&moreOptions...]
-`̀ `
+```
 
 ### Endpoint options
 
