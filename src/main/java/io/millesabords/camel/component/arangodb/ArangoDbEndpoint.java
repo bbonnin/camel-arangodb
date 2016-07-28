@@ -7,6 +7,7 @@ import org.apache.camel.impl.DefaultEndpoint;
 import org.apache.camel.spi.Metadata;
 import org.apache.camel.spi.UriEndpoint;
 import org.apache.camel.spi.UriParam;
+import org.apache.camel.spi.UriPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +18,7 @@ import com.arangodb.ArangoHost;
 /**
  * Represents an ArangoDB endpoint.
  */
-@UriEndpoint(scheme = "arangodb", title = "ArangoDB", syntax="arangodb:configBean", producerOnly=true)
+@UriEndpoint(scheme = "arangodb", title = "ArangoDB", syntax = "arangodb:configBean", producerOnly = true, label = "database,nosql")
 public class ArangoDbEndpoint extends DefaultEndpoint {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArangoDbEndpoint.class);
@@ -26,22 +27,31 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
     
     private static final int DEFAULT_PORT = 8529;
     
-
+    /** Name of configuration bean. */
+    @UriPath
+    private String configBean;
+    
+    /** Name of the database. */
     @UriParam @Metadata(required = "true")
     private String database;
 
-    @UriParam @Metadata(required = "true")
+    /** Name of the collection. */
+    @UriParam
     private String collection;
     
+    /** Hostname of ArangoDB. */
     @UriParam
     private final String host = DEFAULT_HOST;
     
+    /** Port of ArangoDB. */
     @UriParam
     private final int port = DEFAULT_PORT;
     
+    /** Operation to execute. */
     @UriParam
     private String operation;
     
+    /** AQL Query to execute if operation is 'aql_query'. */
     @UriParam
     private String aql;
 
@@ -88,6 +98,8 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
         configure.setDefaultDatabase(database);
         
         driver = new ArangoDriver(configure);
+        
+        LOG.info("Connected to {}:{}, default db is {}", host, port, database);
     }
 
     @Override
@@ -159,6 +171,14 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
 
     public void setAql(String aql) {
         this.aql = aql;
+    }
+
+    public String getConfigBean() {
+        return configBean;
+    }
+
+    public void setConfigBean(String configBean) {
+        this.configBean = configBean;
     }
 
 }
