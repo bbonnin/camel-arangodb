@@ -1,5 +1,6 @@
 package io.millesabords.camel.component.arangodb;
 
+import com.arangodb.ArangoDB;
 import org.apache.camel.Consumer;
 import org.apache.camel.Processor;
 import org.apache.camel.Producer;
@@ -11,14 +12,10 @@ import org.apache.camel.spi.UriPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.arangodb.ArangoConfigure;
-import com.arangodb.ArangoDriver;
-import com.arangodb.ArangoHost;
-
 /**
  * Represents an ArangoDB endpoint.
  */
-@UriEndpoint(scheme = "arangodb", title = "ArangoDB", syntax = "arangodb:configBean", producerOnly = true, label = "database,nosql")
+@UriEndpoint(scheme = "arangodb", title = "ArangoDB", syntax = "arangodb:arangoBean", producerOnly = true, label = "database,nosql")
 public class ArangoDbEndpoint extends DefaultEndpoint {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArangoDbEndpoint.class);
@@ -27,9 +24,9 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
     
     private static final int DEFAULT_PORT = 8529;
     
-    /** Name of configuration bean. */
+    /** Name of ArangoDB bean. */
     @UriPath
-    private String configBean;
+    private String arangoBean;
     
     /** Name of the database. */
     @UriParam @Metadata(required = "true")
@@ -46,6 +43,14 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
     /** Port of ArangoDB. */
     @UriParam
     private final int port = DEFAULT_PORT;
+
+    /** User name to access ArangoDB. */
+    @UriParam
+    private String user;
+
+    /** Password to access ArangoDB. */
+    @UriParam
+    private String password;
     
     /** Operation to execute. */
     @UriParam
@@ -55,9 +60,7 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
     @UriParam
     private String aql;
 
-    private ArangoDriver driver;
-
-    private ArangoConfigure configure;
+    private ArangoDB arango;
 
     private boolean mustShutdown;
 
@@ -88,24 +91,25 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
     protected void doStart() throws Exception {
         super.doStart();
 
-        if (configure == null) {
+        if (arango == null) {
             mustShutdown = true;
-            configure = new ArangoConfigure();
-            configure.setArangoHost(new ArangoHost(host, port));
-            configure.init();
+
+            final ArangoDB.Builder builder = new ArangoDB.Builder().host(host, port);
+
+            if (user != null) {
+                builder.user(user).password(password);
+            }
+
+            arango = builder.build();
         }
-        
-        configure.setDefaultDatabase(database);
-        
-        driver = new ArangoDriver(configure);
-        
+
         LOG.info("Connected to {}:{}, default db is {}", host, port, database);
     }
 
     @Override
     protected void doStop() throws Exception {
-        if (mustShutdown && configure != null) {
-            configure.shutdown();
+        if (mustShutdown && arango != null) {
+            arango.shutdown();
         }
     }
 
@@ -125,20 +129,12 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
         this.collection = collection;
     }
 
-    public ArangoDriver getDriver() {
-        return driver;
+    public ArangoDB getArango() {
+        return arango;
     }
 
-    public void setDriver(ArangoDriver driver) {
-        this.driver = driver;
-    }
-
-    public ArangoConfigure getConfigure() {
-        return configure;
-    }
-
-    public void setConfigure(ArangoConfigure configure) {
-        this.configure = configure;
+    public void setArango(ArangoDB arango) {
+        this.arango = arango;
     }
 
     public boolean isMustShutdown() {
@@ -157,6 +153,14 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
         return port;
     }
 
+    public String getUser() {
+        return user;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
     public String getOperation() {
         return operation;
     }
@@ -173,12 +177,12 @@ public class ArangoDbEndpoint extends DefaultEndpoint {
         this.aql = aql;
     }
 
-    public String getConfigBean() {
-        return configBean;
+    public String getArangoBean() {
+        return arangoBean;
     }
 
-    public void setConfigBean(String configBean) {
-        this.configBean = configBean;
+    public void setArangoBean(String arangoBean) {
+        this.arangoBean = arangoBean;
     }
 
 }

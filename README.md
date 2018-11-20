@@ -4,6 +4,12 @@ Camel ArangoDB Component
 For more details about ArangoDB, consult the [ArangoDB web site](https://www.arangodb.com/).
 
 > ArangoDB is a multi-model database. But, at this moment, this component is only dedicated to the document model.
+> ArangoDB is available as a Docker container: see https://www.arangodb.com/download-major/docker/ 
+
+
+## Latest news
+
+* Version 2.0: support for ArangoDB 3.1 or above (tested with 3.3.19)
 
 
 ## Build
@@ -11,6 +17,8 @@ For more details about ArangoDB, consult the [ArangoDB web site](https://www.ara
 ```bash
 mvn clean install
 ```
+
+> For the tests, start an ArangoDB server, e.g. `docker run -p 8529:8529 -e ARANGO_ROOT_PASSWORD=openSesame arangodb/arangodb:3.3.19`
 
 ## How to use
 

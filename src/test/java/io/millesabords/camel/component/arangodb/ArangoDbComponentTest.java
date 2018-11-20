@@ -4,18 +4,23 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.arangodb.ArangoDB;
+import com.arangodb.entity.DocumentEntity;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.test.spring.CamelSpringTestSupport;
-import org.junit.Ignore;
+import org.junit.After;
 import org.junit.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.support.AbstractApplicationContext;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.annotation.DirtiesContext.ClassMode;
 
 import com.arangodb.entity.BaseDocument;
 import com.arangodb.util.MapBuilder;
+
+import static io.millesabords.camel.component.arangodb.ArangoDbConfig.DB;
+import static io.millesabords.camel.component.arangodb.ArangoDbConfig.USERS;
+import static io.millesabords.camel.component.arangodb.ArangoDbConstants.*;
+
 
 /**
  * Basic unit tests.
@@ -33,6 +38,12 @@ public class ArangoDbComponentTest extends CamelSpringTestSupport {
         final BaseDocument user = new BaseDocument(key);
         user.addAttribute("name", name);
         return user;
+    }
+
+    @After
+    public void shutdown() {
+        ctx.getBean(ArangoDB.class).db(DB).drop();
+        ctx.getBean(ArangoDB.class).shutdown();
     }
     
     @Test
@@ -60,30 +71,34 @@ public class ArangoDbComponentTest extends CamelSpringTestSupport {
     @Test
     public void testWithHeaders() throws Exception {
         final MockEndpoint mock = getMockEndpoint("mock:result");
-        mock.expectedMessageCount(5);  
+        mock.expectedMessageCount(6);
         
         final BaseDocument alice = createUser("user1", "alice");
         
         final Map<String, Object> headers = new HashMap<>();
-        headers.put(ArangoDbConstants.ARANGO_COLLECTION_HEADER, "users");
+        headers.put(ARANGO_COLLECTION_HEADER, USERS);
         
-        headers.put(ArangoDbConstants.ARANGO_OPERATION_HEADER, "insert");
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_INSERT_DOC);
         template.requestBodyAndHeaders("direct:arangodb", alice, headers);
         
-        headers.put(ArangoDbConstants.ARANGO_OPERATION_HEADER, "get");
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_GET_DOC);
         BaseDocument user = template.requestBodyAndHeaders("direct:arangodb", "user1", headers, BaseDocument.class);
         assertNotNull("User1 is null", user);
         
-        headers.put(ArangoDbConstants.ARANGO_OPERATION_HEADER, "update");
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_UPDATE_DOC);
         alice.addAttribute("address", "Wonderland");
-        user = template.requestBodyAndHeaders("direct:arangodb", alice, headers, BaseDocument.class);
+        DocumentEntity userDoc = template.requestBodyAndHeaders("direct:arangodb", alice, headers, DocumentEntity.class);
+        assertNotNull("DocumentEntity is null", userDoc);
+
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_GET_DOC);
+        user = template.requestBodyAndHeaders("direct:arangodb", "user1", headers, BaseDocument.class);
         assertNotNull("User1 is null", user);
         assertEquals("Address not equal", user.getAttribute("address"), alice.getAttribute("address"));
    
-        headers.put(ArangoDbConstants.ARANGO_OPERATION_HEADER, "delete");
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_DELETE_DOC);
         template.requestBodyAndHeaders("direct:arangodb", "user1", headers);
         
-        headers.put(ArangoDbConstants.ARANGO_OPERATION_HEADER, "get");
+        headers.put(ARANGO_OPERATION_HEADER, ARANGO_GET_DOC);
         user = template.requestBodyAndHeaders("direct:arangodb", "user1", headers, BaseDocument.class);
         assertNull("User1 is not null", user);
         
@@ -111,7 +126,7 @@ public class ArangoDbComponentTest extends CamelSpringTestSupport {
         int nb = 0;
         while (userIter.hasNext()) {
             nb++;
-            System.out.println("Key: " + userIter.next().getDocumentKey());
+            System.out.println("Key: " + userIter.next().getKey());
         }
         assertEquals("Bad number of users", nb, 2);
         
@@ -124,19 +139,19 @@ public class ArangoDbComponentTest extends CamelSpringTestSupport {
             @Override
             public void configure() {
                 from("direct:arangodb_insert")
-                    .to("arangodb:config?database=testdb&collection=users&operation=insert")
+                    .to(buildUri(ARANGO_INSERT_DOC))
                     .to("mock:result_insert");
                 
                 from("direct:arangodb_del")
-                    .to("arangodb:config?database=testdb&collection=users&operation=delete")
+                    .to(buildUri(ARANGO_DELETE_DOC))
                     .to("mock:result_del");
                 
                 from("direct:arangodb_get")
-                    .to("arangodb:config?database=testdb&collection=users&operation=get")
+                    .to(buildUri(ARANGO_GET_DOC))
                     .to("mock:result_get");
                 
                 from("direct:arangodb")
-                    .to("arangodb:config?database=testdb")
+                    .to(buildUri(null))
                     .to("mock:result");
                 
                 from("direct:arangodb_log_users_bob")
@@ -144,11 +159,21 @@ public class ArangoDbComponentTest extends CamelSpringTestSupport {
                         .constant("FOR u IN users FILTER u.name == @name RETURN u")
                     .setHeader(ArangoDbConstants.ARANGO_AQL_QUERY_VARS_HEADER)
                         .constant(new MapBuilder().put("name", "bob").get())
-                    .to("arangodb:config?database=testdb&operation=aql_query")
+                    .to(buildUri(null) + "&operation=" + ARANGO_AQL_QUERY)
                         .split(body())
                             .log("${body}")
                     .to("mock:result");
             }
         };
+    }
+
+    private String buildUri(String ope) {
+        String uri = String.format("arangodb:arango?database=%s", DB);
+
+        if (ope != null) {
+            uri = String.format(uri + "&collection=%s&operation=%s", USERS, ope);
+        }
+
+        return uri;
     }
 }
